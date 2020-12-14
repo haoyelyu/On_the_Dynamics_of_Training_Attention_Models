@@ -1,0 +1,7 @@
+[Model Config]
+model_name = FC
+dimEmb = 10
+dimKey = 10
+dimQuery = 10
+queryVar = 0.3
+embVar = 1e-6

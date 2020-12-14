@@ -1,0 +1,6 @@
+[Train Config]
+numEpoch = 6000
+learning_rate = 0.1
+query_trainable = False
+key_trainable = True
+emb_trainable = False

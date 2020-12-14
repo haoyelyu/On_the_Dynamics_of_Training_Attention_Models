@@ -1,0 +1,8 @@
+[Synthetic Gen]
+numTopic = 4
+distr = [0.25, 0.5, 0.75, 1]
+numSample = 1000
+wordSize = 8
+randomWordVocSize = 5000
+numRandomWordPerSent = 20
+partition = [0.8, 0.81, 1]
