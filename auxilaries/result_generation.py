@@ -11,154 +11,150 @@ import configparser
 import ast
 from tqdm import tqdm
 import heapq
-def topicEmbNorm(k, numRandomWordPerSent):
+def topicEmbNorm(k, non_topic_word_per_sent):
 	"""Assume that keys are initialized from zero"""
-	return (max(0, 2*(k+exp(k)/numRandomWordPerSent-1/numRandomWordPerSent))+10e-15)**0.5
+	return (max(0, 2*(k+exp(k)/non_topic_word_per_sent-1/non_topic_word_per_sent))+10e-15)**0.5
 
-def getTopicPurityAndOcc(word, sentList, topicList):
+def getTopicPurityAndOcc(word, sent_list, topic_list):
 	numPos = 0
 	numNeg = 0
-	totalOccurance = 0
-	for sentIdx, sent in enumerate(sentList):
+	total_occurance = 0
+	for sent_idx, sent in enumerate(sent_list):
 		if word in sent:
-			if topicList[sentIdx] == 0:
+			if topic_list[sent_idx] == 0:
 				numNeg+=1
 			else:
 				numPos+=1
-			totalOccurance +=1
-	return abs(numPos/(numNeg+numPos)-numNeg/(numNeg+numPos)), totalOccurance
+			total_occurance +=1
+	return abs(numPos/(numNeg+numPos)-numNeg/(numNeg+numPos)), total_occurance
 
-def getTheLargestKeyWordLst_word(word, sentList, topicList, keyList, word_to_ix):
+def get_largest_score_word(word, sent_list, topic_list, key_list, word_to_ix):
 	largestScoreWordLstNeg = []
 	largestScoreWordLstPos = []
 
-	for sentIdx, sent in enumerate(sentList):
+	for sent_idx, sent in enumerate(sent_list):
 		if word in sent:
 			largestWordTemp = sent[0]
 			for aWord in sent:
-				# if (aWord != word) and (keyList[word_to_ix[largestWordTemp]] < keyList[word_to_ix[aWord]]):
-				if (keyList[word_to_ix[largestWordTemp]] < keyList[word_to_ix[aWord]]):
+				if (key_list[word_to_ix[largestWordTemp]] < key_list[word_to_ix[aWord]]):
 					largestWordTemp = aWord
-			if topicList[sentIdx] == 0:
+			if topic_list[sent_idx] == 0:
 				largestScoreWordLstNeg.append(largestWordTemp)
 			else:
 				largestScoreWordLstPos.append(largestWordTemp)
 	return largestScoreWordLstNeg, largestScoreWordLstPos
 
-def getSentList_word(word, sentList, topicList):
-	sentList_word = []
-	topicList_word = []
-	for sentIdx, sent in enumerate(sentList):
+def get_sent_list_word(word, sent_list, topic_list):
+	sent_list_word = []
+	topic_list_word = []
+	for sent_idx, sent in enumerate(sent_list):
 		if word in sent:
-			sentList_word.append(sent)
-			topicList_word.append(topicList[sentIdx])
-	return sentList_word, topicList_word
+			sent_list_word.append(sent)
+			topic_list_word.append(topic_list[sent_idx])
+	return sent_list_word, topic_list_word
 
 def plot_SEN_curve(model_config_path, dataset_config_path, train_config_path, dataset,\
- embeddingNormTopicLog, scoreTopicLog, path_to_store_exp_result, model_name):
+ topic_embedding_norm_log_lst, topic_score_log, path_to_store_exp_result, model_name):
 	config = configparser.ConfigParser()
 	config.read(model_config_path)
-	queryVar = float(config.get('Model Config', 'queryVar'))
+	query_var = float(config.get('Model Config', 'queryVar'))
 	config.read(dataset_config_path)
-	numRandomWordPerSent = int(config.get('Synthetic Gen', 'numRandomWordPerSent'))
+	non_topic_word_per_sent = int(config.get('Synthetic Gen', 'numNonTopicWordPerSent'))
 	word_to_ix = dataset['word_to_ix']
-	topicWordLst = dataset['topicWordLst']
+	topic_word_list = dataset['topic_word_list']
 	path_to_store_exp_result = os.path.join(path_to_store_exp_result, 'SEN_curves')
 	mkdir(path_to_store_exp_result)
-	fig = plt.figure(figsize=(3.5,3))
-	for topic_word_idx in range(len(topicWordLst)):
+	plt.figure(figsize=(3.5,3))
+	for topic_word_idx in range(len(topic_word_list)):
 		plt.clf()
 		ax = plt.subplot(1, 1, 1)
 		plt.ylim(ymax = 5, ymin = 0)
 		plt.xlim(xmax = 5, xmin = 0)
-		ax.set_xlabel(f'Score ({model_name}) $\sigma^2 = {queryVar}$')
+		ax.set_xlabel(f'Score ({model_name}) $\sigma^2 = {query_var}$')
 		ax.set_ylabel('Topic word embedding norm')
-		ax.plot(scoreTopicLog[word_to_ix[topicWordLst[0]]], embeddingNormTopicLog[word_to_ix[topicWordLst[0]]], linestyle='dotted', linewidth=3, label = 'Experimental')
-		ax.plot(scoreTopicLog[word_to_ix[topicWordLst[0]]], [topicEmbNorm(k, numRandomWordPerSent) for k in scoreTopicLog[word_to_ix[topicWordLst[0]]]], linestyle='dotted', linewidth=3, label = 'Theoretical')
+		ax.plot(topic_score_log[word_to_ix[topic_word_list[0]]], topic_embedding_norm_log_lst[word_to_ix[topic_word_list[0]]], linestyle='dotted', linewidth=3, label = 'Experimental')
+		ax.plot(topic_score_log[word_to_ix[topic_word_list[0]]], [topicEmbNorm(k, non_topic_word_per_sent) for k in topic_score_log[word_to_ix[topic_word_list[0]]]], linestyle='dotted', linewidth=3, label = 'Theoretical')
 		ax.legend()
 		path_to_store_img = os.path.join(path_to_store_exp_result, 'NormVsKeyTopicWord'+str(topic_word_idx)+'.pdf')
 		plt.savefig(path_to_store_img, bbox_inches='tight')
 	plt.close()
 
-def avgSentLength(word, sentList):
+def get_avg_sent_length(word, sent_list):
 	sentLenLst = []
-	for sent in sentList:
+	for sent in sent_list:
 		if word in sent:
 			sentLenLst.append(len(sent))
 	sentLenLst = np.array(sentLenLst)
 	return np.mean(sentLenLst), np.std(sentLenLst)
 
 def plot_SEN_curve_SST(dataset,	path_to_store_exp_result, \
-	model_name, nLargest, embeddingNormLog_Numpy, scoreLog_Numpy):
-	config = configparser.ConfigParser()
+	model_name, nLargest, embedding_norm_log_numpy, score_log_numpy):
+	configparser.ConfigParser()
 	word_to_ix = dataset['word_to_ix']
-	wordVocDict = dataset['wordVocDict']
+	word_voc_dict = dataset['word_voc_dict']
 	sent_list_train = dataset['sent_list_train']
 	path_to_store_exp_result = os.path.join(path_to_store_exp_result, 'SEN_curves')
 
 	# get words with n_largest scores to plot SEN curve
-	wordToTrace = [word for word, key in heapq.nlargest(nLargest, \
-		[(word, scoreLog_Numpy[-1, word_to_ix[word]]) for word in wordVocDict], key=lambda x: x[1])]
-	print(wordToTrace)
+	word_to_trace = [word for word, key in heapq.nlargest(nLargest, \
+		[(word, score_log_numpy[-1, word_to_ix[word]]) for word in word_voc_dict], key=lambda x: x[1])]
+	
 	mkdir(path_to_store_exp_result)
 
-	fig = plt.figure(figsize=(3.5,3))
-	for word in tqdm(wordToTrace):
+	plt.figure(figsize=(3.5,3))
+	for word in tqdm(word_to_trace):
 		# calulate the avg length of the sentences containing word
-		numRandomWord, std = avgSentLength(word, sent_list_train)
-		numRandomWord = numRandomWord-1
+		num_non_topic_word, std = get_avg_sent_length(word, sent_list_train)
+		num_non_topic_word = num_non_topic_word-1
 		plt.clf()
 		ax = plt.subplot(1, 1, 1)
-		plt.ylim(ymax = 5, ymin = 0)
-		plt.xlim(xmax = 5, xmin = 0)
 		ax.set_xlabel(f'Score ({model_name})')
 		ax.set_ylabel('Topic word embedding norm')
-		ax.plot(scoreLog_Numpy[:,word_to_ix[word]], embeddingNormLog_Numpy[:,word_to_ix[word]], linestyle='dotted', linewidth=3, label = 'Experimental')
-		ax.plot(scoreLog_Numpy[:,word_to_ix[word]], [topicEmbNorm(k, numRandomWord) for k in scoreLog_Numpy[:,word_to_ix[word]]], linestyle='dotted', linewidth=3, label = 'Theoretical')
+		ax.plot(score_log_numpy[:,word_to_ix[word]], embedding_norm_log_numpy[:,word_to_ix[word]], linestyle='dotted', linewidth=3, label = 'Experimental')
+		ax.plot(score_log_numpy[:,word_to_ix[word]], [topicEmbNorm(k, num_non_topic_word) for k in score_log_numpy[:,word_to_ix[word]]], linestyle='dotted', linewidth=3, label = 'Theoretical')
 		ax.legend()
 		path_to_store_img = os.path.join(path_to_store_exp_result, word+'.pdf')
 		plt.savefig(path_to_store_img, bbox_inches='tight')
 	plt.close()
 
-def plot_topic_purity_dyn(wordToTrace_Lst, dataset, \
-	path_to_store_exp_result, model_name, scoreLog_Numpy):
-	fig = plt.figure()
+def plot_topic_purity_dyn(word_to_trace_list, dataset, \
+	path_to_store_exp_result, model_name, score_log_numpy):
+	plt.figure()
 	plt.figure(figsize=(2.8*5,2))
-	sentList = dataset['sent_list_train']
-	topicList = dataset['topic_list_train']
+	sent_list = dataset['sent_list_train']
+	topic_list = dataset['topic_list_train']
 	word_to_ix = dataset['word_to_ix']
 
-	for wordToTrace_idx, wordToTrace in enumerate(wordToTrace_Lst):
+	for word_to_trace_idx, word_to_trace in enumerate(word_to_trace_list):
 		plt.style.use('seaborn-deep')
-		snapIdxLst = list(range(0,len(scoreLog_Numpy),1))
+		snapIdxLst = list(range(0,len(score_log_numpy),1))
 		avgTopicPurityLst = np.zeros(len(snapIdxLst))
 		avgOccPurityLst = np.zeros(len(snapIdxLst))
 
 		for i, snapIdx in enumerate(snapIdxLst):
-			sentList_word, topicList_word = getSentList_word(wordToTrace, sentList, topicList)
+			sent_list_word, topic_list_word = get_sent_list_word(word_to_trace, sent_list, topic_list)
 			largestScoreWordLstNeg, largestScoreWordLstPos = \
-				getTheLargestKeyWordLst_word(wordToTrace, sentList_word, topicList_word, scoreLog_Numpy[snapIdx], word_to_ix)
+				get_largest_score_word(word_to_trace, sent_list_word, topic_list_word, score_log_numpy[snapIdx], word_to_ix)
 
-			topicPurityLst = [getTopicPurityAndOcc(word, sentList, topicList)[0] for word in largestScoreWordLstPos+largestScoreWordLstNeg]
-			topicOccLst = [getTopicPurityAndOcc(word, sentList, topicList)[1]//1e3 for word in largestScoreWordLstPos+largestScoreWordLstNeg]
+			topicPurityLst = [getTopicPurityAndOcc(word, sent_list, topic_list)[0] for word in largestScoreWordLstPos+largestScoreWordLstNeg]
+			topicOccLst = [getTopicPurityAndOcc(word, sent_list, topic_list)[1]//1e3 for word in largestScoreWordLstPos+largestScoreWordLstNeg]
 
 			avgTopicPurityLst[i] = sum(topicPurityLst)/len(topicPurityLst)
 			avgOccPurityLst[i] = sum(topicOccLst)/len(topicOccLst)
 
-		ax1 = plt.subplot(1, 5, wordToTrace_idx+1)
+		ax1 = plt.subplot(1, 5, word_to_trace_idx+1)
 		color = 'tab:red'
 		ax1.set_ylim(-0.1,1.1)
 		ax1.plot(snapIdxLst, avgTopicPurityLst, color=color)
 
-		if wordToTrace_idx == 0:
+		if word_to_trace_idx == 0:
 			ax1.set_ylabel('Avg. of $\delta(u)$', color=color)
 		else:
 			ax1.get_yaxis().set_ticks([])
-			# plt.subplots_adjust(wspace = -1)
-		ax1.set_xlabel(f'x$10^3$ Epoch -- {model_name}' + ' -- $\mathcal{A}_{ '+f'{wordToTrace}'+'}(t)$')
+		ax1.set_xlabel(f'x$10^3$ Epoch -- {model_name}' + ' -- $\mathcal{A}_{ '+f'{word_to_trace}'+'}(t)$')
 		ax2 = ax1.twinx()
 		color = 'tab:blue'
-		if wordToTrace_idx == len(wordToTrace_Lst)-1:
+		if word_to_trace_idx == len(word_to_trace_list)-1:
 			ax2.set_ylabel('Avg. of occ. (x $10^3$)', color=color)		
 		else:
 			ax2.get_yaxis().set_ticks([])
@@ -175,66 +171,66 @@ def softmax(scores):
 	Z = sum(expScores)
 	return [expScore/Z for expScore in expScores]
 
-def plot_two_word_in_sent_weight_dyn(sentIdxForTrace, wordIndToTrace, dataset, \
-	embeddingNormLog_Numpy, scoreLog_Numpy, path_to_store_exp_result):
+def plot_two_word_in_sent_weight_dyn(sent_idx_to_trace, word_Idx_to_trace, dataset, \
+	embedding_norm_log_numpy, score_log_numpy, path_to_store_exp_result):
 	
 	path_to_store_exp_result = os.path.join(path_to_store_exp_result, 'sentWordWeightTrace')
 	mkdir(path_to_store_exp_result)
-	sentList = dataset['sent_list_train']
+	sent_list = dataset['sent_list_train']
 	word_to_ix = dataset['word_to_ix']
-	sentenceToTrace = sentList[sentIdxForTrace]
-	weights = np.zeros((len(scoreLog_Numpy), len(sentenceToTrace)))
-	scores = np.zeros((len(scoreLog_Numpy), len(sentenceToTrace)))
-	embeddingNorms = np.zeros((len(scoreLog_Numpy), len(sentenceToTrace)))
+	sentence_to_trace = sent_list[sent_idx_to_trace]
+	weights = np.zeros((len(score_log_numpy), len(sentence_to_trace)))
+	scores = np.zeros((len(score_log_numpy), len(sentence_to_trace)))
+	embedding_norms = np.zeros((len(score_log_numpy), len(sentence_to_trace)))
 
-	for snapIdx in range(len(scoreLog_Numpy)):
-		scores[snapIdx]  = [scoreLog_Numpy[snapIdx, word_to_ix[word]] \
-			for word in sentenceToTrace]
+	for snapIdx in range(len(score_log_numpy)):
+		scores[snapIdx]  = [score_log_numpy[snapIdx, word_to_ix[word]] \
+			for word in sentence_to_trace]
 		weights[snapIdx] = softmax(scores[snapIdx])
-		embeddingNorms[snapIdx] = [embeddingNormLog_Numpy[snapIdx, word_to_ix[word]] for word in sentenceToTrace]
+		embedding_norms[snapIdx] = [embedding_norm_log_numpy[snapIdx, word_to_ix[word]] for word in sentence_to_trace]
 
-	fig = plt.figure()
+	plt.figure()
 	plt.figure(figsize=(3.5,2.5))
 
-	plt.plot(range(1,(len(scoreLog_Numpy)+1)), weights[:,wordIndToTrace[0]],\
-	 	label=sentenceToTrace[wordIndToTrace[0]], linewidth=3, linestyle='dotted')
-	plt.plot(range(1,(len(scoreLog_Numpy)+1)), weights[:,wordIndToTrace[1]],\
-		label=sentenceToTrace[wordIndToTrace[1]], linewidth=3, linestyle='dotted')
+	plt.plot(range(1,(len(score_log_numpy)+1)), weights[:,word_Idx_to_trace[0]],\
+	 	label=sentence_to_trace[word_Idx_to_trace[0]], linewidth=3, linestyle='dotted')
+	plt.plot(range(1,(len(score_log_numpy)+1)), weights[:,word_Idx_to_trace[1]],\
+		label=sentence_to_trace[word_Idx_to_trace[1]], linewidth=3, linestyle='dotted')
 	plt.ylabel('Weights')
 	plt.xlabel('$x10^3$ Epoch')
 	plt.legend()
-	plt.savefig(os.path.join(path_to_store_exp_result, str(sentIdxForTrace)+'_weight_'+ \
-		str(sentenceToTrace[wordIndToTrace[0]])+'_'+sentenceToTrace[wordIndToTrace[1]]+'.pdf'), \
+	plt.savefig(os.path.join(path_to_store_exp_result, str(sent_idx_to_trace)+'_weight_'+ \
+		str(sentence_to_trace[word_Idx_to_trace[0]])+'_'+sentence_to_trace[word_Idx_to_trace[1]]+'.pdf'), \
 		bbox_inches='tight', )
 
 	plt.clf()
-	plt.plot(range(1,(len(scoreLog_Numpy)+1)), scores[:,wordIndToTrace[0]], \
-		label=sentenceToTrace[wordIndToTrace[0]], linewidth=3, linestyle='dotted')
-	plt.plot(range(1,(len(scoreLog_Numpy)+1)), scores[:,wordIndToTrace[1]], \
-		label=sentenceToTrace[wordIndToTrace[1]], linewidth=3, linestyle='dotted')
+	plt.plot(range(1,(len(score_log_numpy)+1)), scores[:,word_Idx_to_trace[0]], \
+		label=sentence_to_trace[word_Idx_to_trace[0]], linewidth=3, linestyle='dotted')
+	plt.plot(range(1,(len(score_log_numpy)+1)), scores[:,word_Idx_to_trace[1]], \
+		label=sentence_to_trace[word_Idx_to_trace[1]], linewidth=3, linestyle='dotted')
 	plt.ylabel('Scores')
 	plt.xlabel('$x10^3$ Epoch')
 	plt.legend()
-	plt.savefig(os.path.join(path_to_store_exp_result, str(sentIdxForTrace)+'_key_'+ \
-		str(sentenceToTrace[wordIndToTrace[0]])+'_'+sentenceToTrace[wordIndToTrace[1]]+'.pdf'), \
+	plt.savefig(os.path.join(path_to_store_exp_result, str(sent_idx_to_trace)+'_key_'+ \
+		str(sentence_to_trace[word_Idx_to_trace[0]])+'_'+sentence_to_trace[word_Idx_to_trace[1]]+'.pdf'), \
 		bbox_inches='tight', )
 
 	plt.clf()
-	plt.plot(range(1,(len(scoreLog_Numpy)+1)), embeddingNorms[:,wordIndToTrace[0]], \
-		label=sentenceToTrace[wordIndToTrace[0]], linewidth=3, linestyle='dotted')
-	plt.plot(range(1,(len(scoreLog_Numpy)+1)), embeddingNorms[:,wordIndToTrace[1]], \
-		label=sentenceToTrace[wordIndToTrace[1]], linewidth=3, linestyle='dotted')
+	plt.plot(range(1,(len(score_log_numpy)+1)), embedding_norms[:,word_Idx_to_trace[0]], \
+		label=sentence_to_trace[word_Idx_to_trace[0]], linewidth=3, linestyle='dotted')
+	plt.plot(range(1,(len(score_log_numpy)+1)), embedding_norms[:,word_Idx_to_trace[1]], \
+		label=sentence_to_trace[word_Idx_to_trace[1]], linewidth=3, linestyle='dotted')
 	plt.ylabel('Word embedding norms')
 	plt.xlabel('$x10^3$ Epoch')
 	plt.legend()
-	plt.savefig(os.path.join(path_to_store_exp_result, str(sentIdxForTrace)+\
-		'_norm_'+str(sentenceToTrace[wordIndToTrace[0]])+'_'+sentenceToTrace[wordIndToTrace[1]]+'.pdf'),\
+	plt.savefig(os.path.join(path_to_store_exp_result, str(sent_idx_to_trace)+\
+		'_norm_'+str(sentence_to_trace[word_Idx_to_trace[0]])+'_'+sentence_to_trace[word_Idx_to_trace[1]]+'.pdf'),\
 		 bbox_inches='tight', )
 
 
 
 def plot_loss_curve(training_loss_log_lst, path_to_store_exp_result, model_name_lst):
-	fig = plt.figure(figsize=(4,2.5))
+	plt.figure(figsize=(4,2.5))
 	plt.clf()
 	ax = plt.subplot(1, 1, 1)
 	ax.set_xlabel(f'Epoch')
@@ -247,45 +243,43 @@ def plot_loss_curve(training_loss_log_lst, path_to_store_exp_result, model_name_
 	plt.close()
 
 
-def plot_emb_norm_curve(dataset, embeddingNormTopicLog_lst, path_to_store_exp_result, model_name_lst):
+def plot_emb_norm_curve(dataset, topic_embedding_norm_log_lst_lst, path_to_store_exp_result, model_name_lst):
 	word_to_ix = dataset['word_to_ix']
-	topicWordLst = dataset['topicWordLst']
+	topic_word_list = dataset['topic_word_list']
 
-	fig = plt.figure(figsize=(4,2.5))
+	plt.figure(figsize=(4,2.5))
 	plt.clf()
 	ax = plt.subplot(1, 1, 1)
 	ax.set_xlabel(f'Epoch')
 	ax.set_ylabel('Topic word embedding norm')
 
-	for embeddingNormTopicLog, model_name in zip(embeddingNormTopicLog_lst, model_name_lst):
-		ax.plot(np.arange(0, len(embeddingNormTopicLog[word_to_ix[topicWordLst[0]]]), 1), \
-			embeddingNormTopicLog[word_to_ix[topicWordLst[0]]], linestyle='dotted', linewidth=3, label = f'({model_name})')
+	for topic_embedding_norm_log_lst, model_name in zip(topic_embedding_norm_log_lst_lst, model_name_lst):
+		ax.plot(np.arange(0, len(topic_embedding_norm_log_lst[word_to_ix[topic_word_list[0]]]), 1), \
+			topic_embedding_norm_log_lst[word_to_ix[topic_word_list[0]]], linestyle='dotted', linewidth=3, label = f'({model_name})')
 
 	ax.legend(loc = 2)
 	path_to_store_img = os.path.join(path_to_store_exp_result, 'embedding_norm_epoch.pdf')
 	plt.savefig(path_to_store_img, bbox_inches='tight')
 	plt.close()
 
-def plot_score_curve(dataset, scoreTopicLog_lst, path_to_store_exp_result, model_name_lst):
+def plot_score_curve(dataset, topic_score_log_lst, path_to_store_exp_result, model_name_lst):
 	word_to_ix = dataset['word_to_ix']
-	topicWordLst = dataset['topicWordLst']
+	topic_word_list = dataset['topic_word_list']
 
-	fig = plt.figure(figsize=(4,2.5))
+	plt.figure(figsize=(4,2.5))
 	plt.clf()
 	ax = plt.subplot(1, 1, 1)
 	ax.set_xlabel(f'Epoch')
 	ax.set_ylabel('Topic word score')
 
-	for scoreTopicLog, model_name in zip(scoreTopicLog_lst, model_name_lst):
-		ax.plot(np.arange(0, len(scoreTopicLog[word_to_ix[topicWordLst[0]]]), 1), \
-			scoreTopicLog[word_to_ix[topicWordLst[0]]], linestyle='dotted', linewidth=3, label = f'({model_name})')
+	for topic_score_log, model_name in zip(topic_score_log_lst, model_name_lst):
+		ax.plot(np.arange(0, len(topic_score_log[word_to_ix[topic_word_list[0]]]), 1), \
+			topic_score_log[word_to_ix[topic_word_list[0]]], linestyle='dotted', linewidth=3, label = f'({model_name})')
 
 	ax.legend(loc = 2)
 	path_to_store_img = os.path.join(path_to_store_exp_result, 'score_epoch.pdf')
 	plt.savefig(path_to_store_img, bbox_inches='tight')
 	plt.close()
-
-
 
 
 def getDataRange(last_epoch_log_lst, key):
@@ -299,7 +293,7 @@ def plot_emb_norm_and_score_distribution(last_epoch_log_lst, model_name_lst, pat
 	mkdir(path_to_store_exp_result)
 
 	# Plot non-topic word embedding norm distribution
-	fig = plt.figure(figsize=(3.5,3))
+	plt.figure(figsize=(3.5,3))
 	plt.clf()	
 	ax = plt.subplot(1, 1, 1)
 	ax.set_ylim((0, 1.05))
@@ -339,7 +333,7 @@ def plot_emb_norm_and_score_distribution(last_epoch_log_lst, model_name_lst, pat
 
 
 	# Plot non-topic word score distribution
-	fig = plt.figure(figsize=(3.5,3))
+	plt.figure(figsize=(3.5,3))
 	plt.clf()	
 	ax = plt.subplot(1, 1, 1)
 	ax.set_ylim((0, 1.05))
@@ -359,7 +353,7 @@ def plot_emb_norm_and_score_distribution(last_epoch_log_lst, model_name_lst, pat
 	plt.savefig(os.path.join(path_to_store_exp_result, 'NonTopicWordScoreDistribution.pdf'), bbox_inches='tight')
 
 	# Plot topic word score distribution
-	fig = plt.figure(figsize=(3.5,3))
+	plt.figure(figsize=(3.5,3))
 	plt.clf()	
 	ax = plt.subplot(1, 1, 1)
 	ax.set_ylim((0, 1.05))
@@ -377,17 +371,3 @@ def plot_emb_norm_and_score_distribution(last_epoch_log_lst, model_name_lst, pat
 	ax.legend(loc=1)
 	plt.yticks(np.arange(0,1.1,0.2))
 	plt.savefig(os.path.join(path_to_store_exp_result, 'TopicWordScoreDistribution.pdf'), bbox_inches='tight')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
