@@ -15,7 +15,7 @@ path_to_save_model = '.sst5_best_model'
 n_largest = 100
 
 if __name__ == "__main__":
-	dev = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+	dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 	dataset = load_sst(sst5_data_set_lst, dev = dev)
 	dataset['num_topic'] = 5
 	mkdir(path_to_save_model)

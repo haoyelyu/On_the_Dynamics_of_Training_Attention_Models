@@ -11,11 +11,27 @@ import configparser
 import ast
 from tqdm import tqdm
 import heapq
+
 def topicEmbNorm(k, non_topic_word_per_sent):
-	"""Assume that keys are initialized from zero"""
+	""" calculate the theoretical SEN relationship
+
+	Args:
+	k (float): score
+	non_topic_word_per_sent: num of non-topic word per sentence 
+			(in SST experiement, this is the avg sentence len of a word minus one)
+	
+	Assumptions: keys are initialized from zero
+
+	Return: the emb norm in terms of k
+	"""
 	return (max(0, 2*(k+exp(k)/non_topic_word_per_sent-1/non_topic_word_per_sent))+10e-15)**0.5
 
+
+
 def getTopicPurityAndOcc(word, sent_list, topic_list):
+
+
+
 	numPos = 0
 	numNeg = 0
 	total_occurance = 0
@@ -26,9 +42,27 @@ def getTopicPurityAndOcc(word, sent_list, topic_list):
 			else:
 				numPos+=1
 			total_occurance +=1
-	return abs(numPos/(numNeg+numPos)-numNeg/(numNeg+numPos)), total_occurance
+	return abs(numPos/(numNeg+numPos)- numNeg/(numNeg+numPos)), total_occurance
 
-def get_largest_score_word(word, sent_list, topic_list, key_list, word_to_ix):
+
+def get_largest_score_word(word, sent_list, topic_list, score_list, word_to_ix):
+	""" get the list of words having the largest scores in a sentence containing ``word''
+
+
+	Args:
+	word (string): see the method description aboce. 
+	sent_list (list of string lists): the list of sentences in the training set
+	topic_list (list of integers): the list of topics in the training set
+	score_list (list of floats): the word scores
+	word_to_ix (dictionary): word to word_idx mapping
+
+	Return:
+	largestScoreWordLstNeg (list of floats): list of words having the largest scores in a  
+												negative sentence containing ``word''
+	largestScoreWordLstPos (list of floats): list of words having the largest scores in a  
+												positive sentence containing ``word''
+	"""
+
 	largestScoreWordLstNeg = []
 	largestScoreWordLstPos = []
 
@@ -36,7 +70,7 @@ def get_largest_score_word(word, sent_list, topic_list, key_list, word_to_ix):
 		if word in sent:
 			largestWordTemp = sent[0]
 			for aWord in sent:
-				if (key_list[word_to_ix[largestWordTemp]] < key_list[word_to_ix[aWord]]):
+				if (score_list[word_to_ix[largestWordTemp]] < score_list[word_to_ix[aWord]]):
 					largestWordTemp = aWord
 			if topic_list[sent_idx] == 0:
 				largestScoreWordLstNeg.append(largestWordTemp)
@@ -45,6 +79,21 @@ def get_largest_score_word(word, sent_list, topic_list, key_list, word_to_ix):
 	return largestScoreWordLstNeg, largestScoreWordLstPos
 
 def get_sent_list_word(word, sent_list, topic_list):
+	"""
+	Get the list of sentences containing ``word'' as well as the corresponding target topic list
+
+	Args:
+	word (string): see the method description above. 
+	sent_list (list of string lists): the list of sentences in the training set
+	topic_list (list of integers): the list of topics in the training set
+	
+	Return:
+	sent_list_word (list of string lists): list of sentences containing ``word''
+
+	topic_list_word (list of ints): list of the corresponding target topics
+
+	"""
+
 	sent_list_word = []
 	topic_list_word = []
 	for sent_idx, sent in enumerate(sent_list):
@@ -53,8 +102,25 @@ def get_sent_list_word(word, sent_list, topic_list):
 			topic_list_word.append(topic_list[sent_idx])
 	return sent_list_word, topic_list_word
 
+
+
 def plot_SEN_curve(model_config_path, dataset_config_path, train_config_path, dataset,\
  topic_embedding_norm_log_lst, topic_score_log, path_to_store_exp_result, model_name):
+	
+	''' plot experiment SEN curve with the theoretical counterparts (for synthetic data experiment). 
+
+	Args:
+	model_config_path (string): the path to the model configuration
+	dataset_config_path (string): the path to the dataset configuration
+	train_config_path (string): the path to the training configuration
+	dataset (dictionary): the dataset on which the model is trained 
+	topic_embedding_norm_log_lst (numpy arr): list of the topic word embedding norms
+	topic_score_log (numpy arr)): list of the topic word scores
+	path_to_store_exp_result (string):  path to store plots
+	model_name (string): the name of model shown in the legend.
+
+	'''
+
 	config = configparser.ConfigParser()
 	config.read(model_config_path)
 	query_var = float(config.get('Model Config', 'queryVar'))
@@ -80,6 +146,17 @@ def plot_SEN_curve(model_config_path, dataset_config_path, train_config_path, da
 	plt.close()
 
 def get_avg_sent_length(word, sent_list):
+	''' calculate the average sentence length containing ``word''
+
+	Args:
+	word (string): see the method description above.
+	sent_list (list of string list): the list of the sentences in the trainining dataset.
+	
+
+	return:
+	1) (float) the avg sentence length containing ``word''
+	2) (float) the std of the sentence lengths
+	'''
 	sentLenLst = []
 	for sent in sent_list:
 		if word in sent:
@@ -87,8 +164,21 @@ def get_avg_sent_length(word, sent_list):
 	sentLenLst = np.array(sentLenLst)
 	return np.mean(sentLenLst), np.std(sentLenLst)
 
+
 def plot_SEN_curve_SST(dataset,	path_to_store_exp_result, \
 	model_name, nLargest, embedding_norm_log_numpy, score_log_numpy):
+	'''	plot experiment SEN curve with the theoretical counterparts (for SST experiment).
+
+	Args:
+	dataset (dictionary): the dataset on which the model is trained 
+	path_to_store_exp_result (string):  path to store plots
+	model_name (string): the name of model shown in the legend.
+	nLargest (int): plot SEN curves for the words contatining nLargest scores
+	embedding_norm_log_numpy (numpy): word embedding norm list at various epoch iterations.
+	score_log_numpy (numpy): word score list at various epoch iterations.
+
+	'''
+
 	configparser.ConfigParser()
 	word_to_ix = dataset['word_to_ix']
 	word_voc_dict = dataset['word_voc_dict']
@@ -117,8 +207,20 @@ def plot_SEN_curve_SST(dataset,	path_to_store_exp_result, \
 		plt.savefig(path_to_store_img, bbox_inches='tight')
 	plt.close()
 
+
 def plot_topic_purity_dyn(word_to_trace_list, dataset, \
 	path_to_store_exp_result, model_name, score_log_numpy):
+	'''	For each word in word_to_trace_list, let L denote the sent list containing the word. 
+	For sentences in L, plot the avg purity and the occurence change of the word that has the largest score.
+
+	Args:
+	word_to_trace_list (list of strings): see the method description above.
+	dataset (dictionary): the dataset on which the model is trained 
+	path_to_store_exp_result (string):  path to store plots
+	model_name (string): the name of model shown in the legend.
+	score_log_numpy (numpy): word score list at various epoch iterations.
+	'''
+		
 	plt.figure()
 	plt.figure(figsize=(2.8*5,2))
 	sent_list = dataset['sent_list_train']
@@ -167,12 +269,34 @@ def plot_topic_purity_dyn(word_to_trace_list, dataset, \
 
 
 def softmax(scores):
+	''' calculate the word weights in a sentence.
+	Args:
+
+	scores (list of floats): the word scores in a sentence
+	
+	return:
+	(list of floats): the word weights in a sentence
+	'''
+
 	expScores = [exp(score) for score in scores]
 	Z = sum(expScores)
 	return [expScore/Z for expScore in expScores]
 
-def plot_two_word_in_sent_weight_dyn(sent_idx_to_trace, word_Idx_to_trace, dataset, \
+
+def plot_two_word_in_sent_weight_dyn(sent_idx_to_trace, word_idx_to_trace, dataset, \
 	embedding_norm_log_numpy, score_log_numpy, path_to_store_exp_result):
+	''' plot the weight changes of two words in a sentence 
+
+	Args:
+	sent_idx_to_trace (int): trace sent_idx_to_trace-th sent in the training set 
+	word_idx_to_trace (list of ints): the list contain two ints [i, j]. The method trace the i-th and j-th
+									word in a sentence.
+	dataset (dictionary): the dataset on which the model is trained 
+	embedding_norm_log_numpy (numpy): word embedding norm list at various epoch iterations.
+	score_log_numpy (numpy): word score list at various epoch iterations. 
+	path_to_store_exp_result (string):  path to store plots
+	'''
+
 	
 	path_to_store_exp_result = os.path.join(path_to_store_exp_result, 'sentWordWeightTrace')
 	mkdir(path_to_store_exp_result)
@@ -192,44 +316,52 @@ def plot_two_word_in_sent_weight_dyn(sent_idx_to_trace, word_Idx_to_trace, datas
 	plt.figure()
 	plt.figure(figsize=(3.5,2.5))
 
-	plt.plot(range(1,(len(score_log_numpy)+1)), weights[:,word_Idx_to_trace[0]],\
-	 	label=sentence_to_trace[word_Idx_to_trace[0]], linewidth=3, linestyle='dotted')
-	plt.plot(range(1,(len(score_log_numpy)+1)), weights[:,word_Idx_to_trace[1]],\
-		label=sentence_to_trace[word_Idx_to_trace[1]], linewidth=3, linestyle='dotted')
+	plt.plot(range(1,(len(score_log_numpy)+1)), weights[:,word_idx_to_trace[0]],\
+	 	label=sentence_to_trace[word_idx_to_trace[0]], linewidth=3, linestyle='dotted')
+	plt.plot(range(1,(len(score_log_numpy)+1)), weights[:,word_idx_to_trace[1]],\
+		label=sentence_to_trace[word_idx_to_trace[1]], linewidth=3, linestyle='dotted')
 	plt.ylabel('Weights')
 	plt.xlabel('$x10^3$ Epoch')
 	plt.legend()
 	plt.savefig(os.path.join(path_to_store_exp_result, str(sent_idx_to_trace)+'_weight_'+ \
-		str(sentence_to_trace[word_Idx_to_trace[0]])+'_'+sentence_to_trace[word_Idx_to_trace[1]]+'.pdf'), \
+		str(sentence_to_trace[word_idx_to_trace[0]])+'_'+sentence_to_trace[word_idx_to_trace[1]]+'.pdf'), \
 		bbox_inches='tight', )
 
 	plt.clf()
-	plt.plot(range(1,(len(score_log_numpy)+1)), scores[:,word_Idx_to_trace[0]], \
-		label=sentence_to_trace[word_Idx_to_trace[0]], linewidth=3, linestyle='dotted')
-	plt.plot(range(1,(len(score_log_numpy)+1)), scores[:,word_Idx_to_trace[1]], \
-		label=sentence_to_trace[word_Idx_to_trace[1]], linewidth=3, linestyle='dotted')
+	plt.plot(range(1,(len(score_log_numpy)+1)), scores[:,word_idx_to_trace[0]], \
+		label=sentence_to_trace[word_idx_to_trace[0]], linewidth=3, linestyle='dotted')
+	plt.plot(range(1,(len(score_log_numpy)+1)), scores[:,word_idx_to_trace[1]], \
+		label=sentence_to_trace[word_idx_to_trace[1]], linewidth=3, linestyle='dotted')
 	plt.ylabel('Scores')
 	plt.xlabel('$x10^3$ Epoch')
 	plt.legend()
 	plt.savefig(os.path.join(path_to_store_exp_result, str(sent_idx_to_trace)+'_key_'+ \
-		str(sentence_to_trace[word_Idx_to_trace[0]])+'_'+sentence_to_trace[word_Idx_to_trace[1]]+'.pdf'), \
+		str(sentence_to_trace[word_idx_to_trace[0]])+'_'+sentence_to_trace[word_idx_to_trace[1]]+'.pdf'), \
 		bbox_inches='tight', )
 
 	plt.clf()
-	plt.plot(range(1,(len(score_log_numpy)+1)), embedding_norms[:,word_Idx_to_trace[0]], \
-		label=sentence_to_trace[word_Idx_to_trace[0]], linewidth=3, linestyle='dotted')
-	plt.plot(range(1,(len(score_log_numpy)+1)), embedding_norms[:,word_Idx_to_trace[1]], \
-		label=sentence_to_trace[word_Idx_to_trace[1]], linewidth=3, linestyle='dotted')
+	plt.plot(range(1,(len(score_log_numpy)+1)), embedding_norms[:,word_idx_to_trace[0]], \
+		label=sentence_to_trace[word_idx_to_trace[0]], linewidth=3, linestyle='dotted')
+	plt.plot(range(1,(len(score_log_numpy)+1)), embedding_norms[:,word_idx_to_trace[1]], \
+		label=sentence_to_trace[word_idx_to_trace[1]], linewidth=3, linestyle='dotted')
 	plt.ylabel('Word embedding norms')
 	plt.xlabel('$x10^3$ Epoch')
 	plt.legend()
 	plt.savefig(os.path.join(path_to_store_exp_result, str(sent_idx_to_trace)+\
-		'_norm_'+str(sentence_to_trace[word_Idx_to_trace[0]])+'_'+sentence_to_trace[word_Idx_to_trace[1]]+'.pdf'),\
+		'_norm_'+str(sentence_to_trace[word_idx_to_trace[0]])+'_'+sentence_to_trace[word_idx_to_trace[1]]+'.pdf'),\
 		 bbox_inches='tight', )
 
 
 
 def plot_loss_curve(training_loss_log_lst, path_to_store_exp_result, model_name_lst):
+	''' Plot the training loss change in terms of the num of epochs. 
+
+	Args:
+	training_loss_log_lst (list of numpy lists): list of numpy lists that record the training loss at various epoch
+	path_to_store_exp_result (string): path to store plots
+	model_name_lst  (list of strings): lst of model names for plot legends.
+	'''
+
 	plt.figure(figsize=(4,2.5))
 	plt.clf()
 	ax = plt.subplot(1, 1, 1)
@@ -243,7 +375,17 @@ def plot_loss_curve(training_loss_log_lst, path_to_store_exp_result, model_name_
 	plt.close()
 
 
-def plot_emb_norm_curve(dataset, topic_embedding_norm_log_lst_lst, path_to_store_exp_result, model_name_lst):
+def plot_emb_norm_curve(dataset, topic_embedding_norm_log_lst, path_to_store_exp_result, model_name_lst):
+	''' Plot the embedding norm changes in terms of the num of epochs. 
+
+	Args:
+	dataset (dictionary): the dataset on which the model is trained 
+	topic_embedding_norm_log_lst (list of numpy lists): list of numpy lists that record the topic word emb norm at various epoch
+	path_to_store_exp_result (string): path to store plots	
+	model_name_lst  (list of strings): lst of model names for plot legends.
+	'''
+
+
 	word_to_ix = dataset['word_to_ix']
 	topic_word_list = dataset['topic_word_list']
 
@@ -253,7 +395,7 @@ def plot_emb_norm_curve(dataset, topic_embedding_norm_log_lst_lst, path_to_store
 	ax.set_xlabel(f'Epoch')
 	ax.set_ylabel('Topic word embedding norm')
 
-	for topic_embedding_norm_log_lst, model_name in zip(topic_embedding_norm_log_lst_lst, model_name_lst):
+	for topic_embedding_norm_log_lst, model_name in zip(topic_embedding_norm_log_lst, model_name_lst):
 		ax.plot(np.arange(0, len(topic_embedding_norm_log_lst[word_to_ix[topic_word_list[0]]]), 1), \
 			topic_embedding_norm_log_lst[word_to_ix[topic_word_list[0]]], linestyle='dotted', linewidth=3, label = f'({model_name})')
 
@@ -263,6 +405,15 @@ def plot_emb_norm_curve(dataset, topic_embedding_norm_log_lst_lst, path_to_store
 	plt.close()
 
 def plot_score_curve(dataset, topic_score_log_lst, path_to_store_exp_result, model_name_lst):
+	''' Plot the score changes in terms of the num of epochs. 
+
+	Args:
+	dataset (dictionary): the dataset on which the model is trained 
+	topic_score_log_lst (list of numpy lists): list of numpy lists that record the topic word score at various epoch
+	path_to_store_exp_result (string): path to store plots	
+	model_name_lst  (list of strings): lst of model names for plot legends.
+	'''
+
 	word_to_ix = dataset['word_to_ix']
 	topic_word_list = dataset['topic_word_list']
 
@@ -283,11 +434,20 @@ def plot_score_curve(dataset, topic_score_log_lst, path_to_store_exp_result, mod
 
 
 def getDataRange(last_epoch_log_lst, key):
+	# auxilary function for plot_emb_norm_and_score_distribution
 	xmin = min([min(last_epoch_log[key]) for last_epoch_log in last_epoch_log_lst])
 	xmax = max([max(last_epoch_log[key]) for last_epoch_log in last_epoch_log_lst])
 	return xmin, xmax
 
 def plot_emb_norm_and_score_distribution(last_epoch_log_lst, model_name_lst, path_to_store_exp_result):
+	''' Plot the embedding norm and score distributions
+
+	Args:
+	last_epoch_log_lst (dictionary): a dictionary stores the parameters of the model in the last training epoch
+	path_to_store_exp_result (string): path to store plots	
+	model_name_lst  (list of strings): lst of model names for plot legends.
+	'''
+
 	# create dir to save results
 	path_to_store_exp_result = os.path.join(path_to_store_exp_result, 'emb_norm_score_distr')
 	mkdir(path_to_store_exp_result)

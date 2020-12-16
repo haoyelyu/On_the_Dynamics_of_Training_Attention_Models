@@ -17,10 +17,27 @@ def mkdir(dir_path):
 		shutil.rmtree(dir_path)
 	os.makedirs(dir_path)
 
-def eucleadan_norm(vec):
+def euclidean_norm(vec):
+	''' Calculate the euclidean norm of vec
+
+	Args:
+	vec (tensor): input vector
+
+	Return: 
+	the euclidean norm of vec
+	'''
 	return vec.pow(2).sum().pow(0.5).tolist()
 
 class Para_Recorder:
+	'''A recorder for logging the para changes when training models using synthetic dataset
+
+	Args:
+	num_cache (int): the maximum num of caches can be stored
+	model: the pytorch model to be trained 
+	dataset (dictionary): the dataset by which the model is trained
+	record_period (int): the period to cache the paras of the model. (not used)
+	'''
+
 	def __init__(self, num_cache, model, dataset, record_period):
 		self.model = model
 		self.num_cache = num_cache
@@ -49,7 +66,7 @@ class Para_Recorder:
 		else:
 			for topic_idx, topic in enumerate(self.dataset['topic_word_list']):
 				self.topic_embedding_norm_log[topic_idx, self.record_idx] = \
-					eucleadan_norm(embedding_weight[self.dataset['word_to_ix'][topic]])*eucleadan_norm(query_weight)
+					euclidean_norm(embedding_weight[self.dataset['word_to_ix'][topic]])*euclidean_norm(query_weight)
 				self.topic_score_log[topic_idx, self.record_idx] = \
 					query_weight.mm(key_weight[self.dataset['word_to_ix'][topic]].view(-1, 1)).tolist()[0][0]
 				self.trainLossLog[self.record_idx] = train_loss
@@ -71,13 +88,13 @@ class Para_Recorder:
 
 		for non_topic_word_idx, non_topic_word in enumerate(self.dataset['non_topic_word_dict']):
 			non_topic_emb_norm_lastEpoch[non_topic_word_idx] = \
-				eucleadan_norm(embedding_weight[self.dataset['word_to_ix'][non_topic_word]])*eucleadan_norm(query_weight)
+				euclidean_norm(embedding_weight[self.dataset['word_to_ix'][non_topic_word]])*euclidean_norm(query_weight)
 			non_topic_score_lastEpoch[non_topic_word_idx] = \
 				query_weight.mm(key_weight[self.dataset['word_to_ix'][non_topic_word]].view(-1, 1)).tolist()[0][0]
 
 		for topic_word_idx, topic_word in enumerate(self.dataset['topic_word_list']):
 			topic_emb_norm_lastEpoch[topic_word_idx] = \
-				eucleadan_norm(embedding_weight[self.dataset['word_to_ix'][topic_word]])*eucleadan_norm(query_weight)
+				euclidean_norm(embedding_weight[self.dataset['word_to_ix'][topic_word]])*euclidean_norm(query_weight)
 			topic_score_lastEpoch[topic_word_idx] = \
 				query_weight.mm(key_weight[self.dataset['word_to_ix'][topic_word]].view(-1, 1)).tolist()[0][0]
 
@@ -95,6 +112,13 @@ class Para_Recorder:
 
 
 class Para_Recorder_SST:
+	'''A recorder for logging the para changes when training models using SST2 dataset
+
+	Args:
+	model: the pytorch model to be trained 
+	dataset (dictionary): the dataset by which the model is trained
+
+	'''
 	def __init__(self, model, dataset):
 		self.model = model
 		self.embedding_norm_log = []
@@ -119,7 +143,7 @@ class Para_Recorder_SST:
 		scores = np.zeros(len(self.dataset['word_voc_dict']))
 		for word_idx, word in enumerate(self.dataset['word_voc_dict']):
 			embedding_norms[self.dataset['word_to_ix'][word]] = \
-				eucleadan_norm(embedding_weight[self.dataset['word_to_ix'][word]])*eucleadan_norm(query_weight)
+				euclidean_norm(embedding_weight[self.dataset['word_to_ix'][word]])*euclidean_norm(query_weight)
 			scores[self.dataset['word_to_ix'][word]] = \
 				query_weight.mm(key_weight[self.dataset['word_to_ix'][word]].view(-1, 1)).tolist()[0][0]
 
@@ -142,6 +166,18 @@ class Para_Recorder_SST:
 
 
 def get_trainable_para(query_trainable, key_trainable, emb_trainable, model):
+	'''Return a list of trainable paras, which are used by optimizer
+
+	Args:
+	query_trainable (boolean): trainability of the query 
+	key_trainable (boolean): trainability of word keys
+	emb_trainable (boolean): trainability of word embeddings
+	model: the pytorch model to be trained 
+
+	Return: 
+	a trainable parameter list
+	'''
+
 	trainable_para_list = []
 	for name, parameter in model.named_parameters():
 		if 'topicPred' in name:
@@ -156,6 +192,17 @@ def get_trainable_para(query_trainable, key_trainable, emb_trainable, model):
 	return trainable_para_list
 
 def config_model(config_file_path, voc_size, num_topic, dev=None):
+	'''Config the model according to the config specified by config_file_path
+	
+	Args:
+	config_file_path (string): path to the model configuration
+	voc_size (int): num of words in dictionary 
+	num_topic (int): num of topics to classify
+	dev: the device to run the experiment
+
+	Return: 
+	a configured pytorch model
+	'''
 	config = configparser.ConfigParser()
 	config.read(config_file_path)
 	model_name = config.get('Model Config', 'model_name')
@@ -168,6 +215,12 @@ def config_model(config_file_path, voc_size, num_topic, dev=None):
 	return model
 
 def produce_data(config_file_path, dev=None):
+	'''Generate synthetic dataset according to the config specified by config_file_path
+
+	Args:
+	config_file_path (string): path to the synthetic dataset configuration
+	'''
+
 	config = configparser.ConfigParser()
 	config.read(config_file_path)
 	num_topic = int(config.get('Synthetic Gen', 'numTopic'))
@@ -212,6 +265,13 @@ def produce_data(config_file_path, dev=None):
 
 
 def load_single_data_file(dataset_path):
+	'''
+	Load a single data file in SST dataset
+
+	Args:
+	dataset_path (string): path to a SST dataset file
+	'''
+
 	num_sample = 0 
 	max_sent_len = 0
 	word_list, sent_list, topic_list = [], [], []
@@ -233,10 +293,28 @@ def load_single_data_file(dataset_path):
 
 
 def padding(sent, max_sent_len, pad_str):
-	"""padding sent to have length max_sent_len using pad_str"""
+	"""padding sent to have length max_sent_len using pad_str
+	Args:
+	sent (list of strings): sentence for padding
+	max_sent_len (int): the len of the padded sentence
+	pad_str (string): the str used for padding
+
+	Return:
+	padded sent (list of strings)
+	"""
 	return(sent+[pad_str]*(max_sent_len-len(sent)))
 
 def load_sst(data_set_list, dev=None):
+	""" Load SST dataset
+	Args:
+	data_set_list (list of strings): the list of the paths to the training, validation and test datasets.
+
+	Return:
+	dataset (dictionary): a dictionary containing 
+								1. the lists of sentences and target topics for training, validation and test
+								2. the word dictionary
+								3. word_to_ix: word to word_idx mapping
+	"""
 	pad_str = '$PAD$'
 	word_list_train, sent_list_train, topic_list_train, num_sample_train, max_sent_len_train = \
 	 load_single_data_file(data_set_list[0])
@@ -271,6 +349,24 @@ def load_sst(data_set_list, dev=None):
 
 def perform_exp(config_file_path, model, dataset, para_Recorder, dev=None, \
 	record_period = 1, patience  = -1, path_to_save_model = None):
+	""" train the model using the specified dataset and training configs; cache the model paras using para_Recorder
+
+	Args:
+	config_file_path (string): path to the training configration file
+	model:	a pytorch model to train
+	dataset (dictionary): the dataset for training, validation and test
+	para_Recorder: the parameter recorder
+	dev: the device to run the experiment
+	record_period (int): the period to record the parameters of the model
+	patience (int): if patience >= 0, then it is the patience for early stopping;
+				 else, early stopping is disabled, and the model is trained for the epoch
+				 specified by the training configration file
+	path_to_save_model: path to save the best model so far
+
+	Return:
+	para_Recorder: the parameter recorder
+	"""
+	
 	# Load experiment configurations
 	config = configparser.ConfigParser()
 	config.read(config_file_path)	
@@ -279,14 +375,13 @@ def perform_exp(config_file_path, model, dataset, para_Recorder, dev=None, \
 	key_trainable = eval(config.get('Train Config', 'key_trainable'))
 	emb_trainable = eval(config.get('Train Config', 'emb_trainable'))
 	
-	
-	# generate a training set
+	# configure optimizer  
 	loss_fn = torch.nn.CrossEntropyLoss(reduction='mean').to(dev)
 	trainable_para_list = get_trainable_para(query_trainable, key_trainable, emb_trainable, model)
 	optimizer = torch.optim.SGD(trainable_para_list, lr = learning_rate)
-	
 
 	if  patience < 0 :
+		# negative patience means no early stopping 
 		num_epoch = int(config.get('Train Config', 'numEpoch'))
 		for epoch_idx in range(num_epoch):
 			model.zero_grad()
@@ -342,6 +437,12 @@ def perform_exp(config_file_path, model, dataset, para_Recorder, dev=None, \
 
 
 def get_model_name(model_config_path, train_config_path):
+	'''Given the experiment configs, return the model name for graph legends
+	
+	Args:
+	model_config_path (string): path to the configuration file of model
+	train_config_path (string):	path to the configuration file of training (trainability of the paras in particular)
+	'''
 	config = configparser.ConfigParser()
 	config.read(model_config_path)
 	model_name = config.get('Model Config', 'model_name')

@@ -14,7 +14,7 @@ train_config_path = 'exp_config/train_config.txt'
 
 last_epoch_log_lst = []
 model_name_lst = []
-dev = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 dataset = produce_data(dataset_config_path, dev=dev)
 
 for model_config_path in model_config_path_lst:
