@@ -58,9 +58,9 @@ def get_largest_score_word(word, sent_list, topic_list, score_list, word_to_ix):
 
 	Return:
 	largestScoreWordLstNeg (list of floats): list of words having the largest scores in a  
-												negative sentence containing ``word''
+		negative sentence containing ``word''
 	largestScoreWordLstPos (list of floats): list of words having the largest scores in a  
-												positive sentence containing ``word''
+		positive sentence containing ``word''
 	"""
 
 	largestScoreWordLstNeg = []
