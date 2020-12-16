@@ -311,9 +311,9 @@ def load_sst(data_set_list, dev=None):
 
 	Return:
 	dataset (dictionary): a dictionary containing 
-								1. the lists of sentences and target topics for training, validation and test
-								2. the word dictionary
-								3. word_to_ix: word to word_idx mapping
+		1. the lists of sentences and target topics for training, validation and test
+		2. the word dictionary
+		3. word_to_ix: word to word_idx mapping
 	"""
 	pad_str = '$PAD$'
 	word_list_train, sent_list_train, topic_list_train, num_sample_train, max_sent_len_train = \
