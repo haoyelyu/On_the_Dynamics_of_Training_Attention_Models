@@ -5,26 +5,26 @@ Code for [On the Dynamics of Training Attention Models](https://arxiv.org/abs/20
 ## Instructions for running the code
 Dependency: PyTorch 1.6.0 with CUDA 10.1, matplotlib 3.3.2, sklearn 0.23.2 and numpy 1.19.2
 
-Run the following cmd for reproducing the results by training Attn\_FC, Attn\_TC and Attn_TL on the artificial dataset introduced in Section 3:
+Run the following cmd for reproducing the results of training Attn\_FC, Attn\_TC and Attn_TL on the artificial dataset introduced in Section 3:
 
 ~~~ shell
 python perform_synthetic_analysis.py
 ~~~
 
-Run the following cmd for reproducing the results for ablation study:
+Run the following cmd for reproducing the results of ablation study:
 
 ~~~ shell
 python ablation_analysis.py
 ~~~ 
 	
-Run the following cmd for reproducing the results by training Attn\_FC and Attn\_TC on SST2:
+Run the following cmd for reproducing the results of training Attn\_FC and Attn\_TC on SST2:
 
 ~~~ shell
 python perform_sst2_analysis.py FC
 python perform_sst2_analysis.py TC
 ~~~ 
 
-Run the following cmd for reproducing the results by training Attn\_FC and Attn\_TC on SST5:
+Run the following cmd for reproducing the results of training Attn\_FC and Attn\_TC on SST5:
 
 ~~~ shell
 python perform_sst5_analysis.py FC
